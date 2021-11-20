@@ -1,6 +1,7 @@
+use std::collections::VecDeque;
+use std::convert::Infallible;
 use std::fs::File;
 use std::io;
-use std::convert::Infallible;
 use std::fmt::{Debug, Display, Formatter};
 use std::io::{BufRead, BufReader};
 use std::ops::{Range};
@@ -15,14 +16,38 @@ fn main() -> anyhow::Result<()>{
 
     let sudoku = lines.parse::<Sudoku>()?;
     println!("{}", sudoku);
-    let solver = Into::<SudokuSolver>::into(sudoku);
+    let mut solver = Into::<SudokuSolver>::into(sudoku);
+    //println!("{}", solver);
+    if !solver.is_solved() {
+        let mut stack = VecDeque::new();
+        stack.push_back(solver);
+
+        loop {
+            solver = stack.pop_back().unwrap();
+            println!("{}", Into::<Sudoku>::into(solver.clone()));
+            match solver.lowest_entropy_field() {
+                None => break,
+                Some((x, y)) => for v in solver.get(x, y).iter(){
+                    let mut solver_step = solver.clone();
+                    solver_step.set(x, y, v);
+                    if solver_step.is_valid() {
+                        println!("Found {} for {}, {}", v, x, y);
+                        stack.push_back(solver_step)
+                    }
+                }
+            }
+        }
+    }
+
+
+    println!("Solved: {}", solver.is_solved());
     println!("{}", solver);
     println!("{}", Into::<Sudoku>::into(solver));
 
     Ok(())
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct SudokuField<T> {
     elements: [T; SudokuField::<()>::size() * SudokuField::<()>::size()]
 }
@@ -75,8 +100,6 @@ impl<T> SudokuField<T>{
         debug_assert!(y < Self::size());
         &mut self.elements[y * Self::size() + x]
     }
-
-
 
 }
 
@@ -158,7 +181,6 @@ impl SudokuSolver {
         debug_assert!(self.get(x, y).contains(v));
         *self.get_mut(x, y) = ValueSet::singleton(v);
         self.propagate(x, y);
-        debug_assert!(!self.get(x,y).is_empty(), "{}, {} is empty", x, y)
     }
 
     fn propagate(&mut self, x: usize, y: usize){
@@ -182,7 +204,24 @@ impl SudokuSolver {
         if self.get(x, y).len() == 1 && l > self.get(x, y).len() {
             self.propagate(x, y);
         }
-        debug_assert!(!self.get(x,y).is_empty(), "{}, {} is empty", x, y)
+    }
+
+    fn is_valid(&self) -> bool {
+        !self.elements.iter().any(|elem| elem.is_empty())
+    }
+
+    fn is_solved(&self) -> bool {
+        !self.elements.iter().any(|elem| elem.len() > 1)
+    }
+
+    fn lowest_entropy_field(&self) -> Option<(usize, usize)> {
+        self.elements
+            .iter()
+            .enumerate()
+            .map(|(i, v)|(i, v.len()))
+            .filter(|(_, v)| *v > 1)
+            .reduce(|t1, t2 | if t2.1 < t1.1 { t2 } else { t1 })
+            .map(|(i, _) | (i % Self::size(), i / Self::size()))
     }
 
 }
@@ -199,6 +238,7 @@ impl From<Sudoku> for SudokuSolver {
                 }
             }
         }
+        debug_assert!(solver.is_valid());
         solver
     }
 }
