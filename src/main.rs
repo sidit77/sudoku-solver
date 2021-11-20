@@ -1,20 +1,13 @@
 use std::error::Error;
 use std::fs::File;
-use std::io;
 use std::fmt::{Debug, Display, Formatter};
-use std::io::{BufRead, BufReader};
+use std::io::{BufReader, Read};
 use std::ops::{Range};
 use std::str::FromStr;
 
 fn main() -> anyhow::Result<()>{
-    let file = File::open("sudoku2.txt")?;
-    let lines: String = BufReader::new(file)
-        .lines()
-        .collect::<io::Result<Vec<String>>>()?
-        .join("\n");
-
-
-    println!("{}", lines);
+    let mut lines: String = String::new();
+    BufReader::new(File::open("sudoku2.txt")?).read_to_string(&mut lines)?;
 
     let sudoku = lines.parse::<Sudoku>()?;
     println!("Trying to solved to following sudoku:\n{}", sudoku);
