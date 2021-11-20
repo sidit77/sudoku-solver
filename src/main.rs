@@ -24,48 +24,25 @@ fn main() -> anyhow::Result<()>{
 }
 
 #[derive(Debug, Clone)]
-struct SudokuField<T> {
+pub struct SudokuField<T> {
     elements: [T; SudokuField::<()>::size() * SudokuField::<()>::size()]
 }
 
 impl<T> SudokuField<T>{
 
-    const fn values() -> Range<u8> {
+    pub const fn values() -> Range<u8> {
         0u8..(Self::size() as u8)
     }
 
-    const fn size() -> usize {
+    pub const fn size() -> usize {
         Self::cell_size() * Self::cell_size()
     }
 
-    const fn cell_size() -> usize {
+    pub const fn cell_size() -> usize {
         3
     }
 
-    fn row(x: usize, y: usize) -> impl Iterator<Item=(usize,usize)> {
-        debug_assert!(x < Self::size());
-        debug_assert!(y < Self::size());
-        (0..Self::size()).filter(move |i| *i != x).map(move |x| (x, y))
-    }
-
-    fn column(x: usize, y: usize) -> impl Iterator<Item=(usize,usize)> {
-        debug_assert!(x < Self::size());
-        debug_assert!(y < Self::size());
-        (0..Self::size()).filter(move |i| *i != y).map(move |y| (x, y))
-    }
-
-    fn cell(x: usize, y: usize) -> impl Iterator<Item=(usize,usize)> {
-        debug_assert!(x < Self::size());
-        debug_assert!(y < Self::size());
-        let cell_x = (x / Self::cell_size()) * Self::cell_size();
-        let cell_y = (y / Self::cell_size()) * Self::cell_size();
-        (0..Self::cell_size())
-            .flat_map(move |cx|(0..Self::cell_size())
-                .map(move |cy|(cell_x + cx, cell_y + cy)))
-            .filter(move |(cx, cy)| *cx != x || *cy != y)
-    }
-
-    fn get(&self, x: usize, y: usize) -> &T {
+    pub fn get(&self, x: usize, y: usize) -> &T {
         debug_assert!(x < Self::size());
         debug_assert!(y < Self::size());
         &self.elements[y * Self::size() + x]
@@ -90,6 +67,29 @@ impl SudokuSolver {
         Self {
             elements: [full_set; Self::size() * Self::size()]
         }
+    }
+
+    fn row(x: usize, y: usize) -> impl Iterator<Item=(usize,usize)> {
+        debug_assert!(x < Self::size());
+        debug_assert!(y < Self::size());
+        (0..Self::size()).filter(move |i| *i != x).map(move |x| (x, y))
+    }
+
+    fn column(x: usize, y: usize) -> impl Iterator<Item=(usize,usize)> {
+        debug_assert!(x < Self::size());
+        debug_assert!(y < Self::size());
+        (0..Self::size()).filter(move |i| *i != y).map(move |y| (x, y))
+    }
+
+    fn cell(x: usize, y: usize) -> impl Iterator<Item=(usize,usize)> {
+        debug_assert!(x < Self::size());
+        debug_assert!(y < Self::size());
+        let cell_x = (x / Self::cell_size()) * Self::cell_size();
+        let cell_y = (y / Self::cell_size()) * Self::cell_size();
+        (0..Self::cell_size())
+            .flat_map(move |cx|(0..Self::cell_size())
+                .map(move |cy|(cell_x + cx, cell_y + cy)))
+            .filter(move |(cx, cy)| *cx != x || *cy != y)
     }
 
     fn set_constraint(&mut self, x: usize, y: usize, v: u8) {
@@ -159,10 +159,10 @@ impl SudokuSolver {
 
 }
 
-type Sudoku = SudokuField<Option<u8>>;
+pub type Sudoku = SudokuField<Option<u8>>;
 
 impl Sudoku {
-    fn solve(self) -> Option<Sudoku>{
+    pub fn solve(self) -> Option<Sudoku>{
         SudokuSolver::from(self).solve().map(|result|result.into())
     }
 }
@@ -245,43 +245,45 @@ impl FromStr for Sudoku {
 }
 
 impl Display for Sudoku {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        for y1 in 0..Self::cell_size() {
-            for y2 in 0..Self::cell_size() {
-                for x1 in 0..Self::cell_size() {
-                    for x2 in 0..Self::cell_size() {
-                        match self.get(x1 * 3 + x2, y1 * 3 + y2) {
-                            None => write!(f, " "),
-                            Some(v) => write!(f, "{}", v)
-                        }?;
-                        if x2 < Self::cell_size() - 1 {
-                            write!(f, " ")?;
-                        }
-                    }
-                    if x1 < Self::cell_size() - 1 {
-                        write!(f, " | ")?;
-                    }
-
-                }
-                writeln!(f, "")?;
-            }
-            if y1 < Self::cell_size() - 1 {
+        fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+            for y1 in 0..Self::cell_size() {
                 for y2 in 0..Self::cell_size() {
-                    for y3 in 0..Self::cell_size() {
-                        write!(f, "-")?;
-                        if y3 < Self::cell_size() - 1 {
+                    for x1 in 0..Self::cell_size() {
+                        for x2 in 0..Self::cell_size() {
+                            match self.get(x1 * 3 + x2, y1 * 3 + y2) {
+                                None => write!(f, " "),
+                                Some(v) => write!(f, "{}", v)
+                            }?;
+                            if x2 < Self::cell_size() - 1 {
+                                write!(f, " ")?;
+                            }
+                        }
+                        if x1 < Self::cell_size() - 1 {
+                            write!(f, " | ")?;
+                        }
+
+                    }
+                    writeln!(f, "")?;
+                }
+                if y1 < Self::cell_size() - 1 {
+                    for y2 in 0..Self::cell_size() {
+                        for y3 in 0..Self::cell_size() {
                             write!(f, "-")?;
+                            if y3 < Self::cell_size() - 1 {
+                                write!(f, "-")?;
+                            }
+                        }
+                        if y2 < Self::cell_size() - 1 {
+                            write!(f, "-+-")?;
                         }
                     }
-                    if y2 < Self::cell_size() - 1 {
-                        write!(f, "-+-")?;
-                    }
+                    writeln!(f, "")?;
                 }
-                writeln!(f, "")?;
             }
+            Ok(())
         }
-        Ok(())
     }
-}
+
+
 
 
