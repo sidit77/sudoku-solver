@@ -1,4 +1,3 @@
-use std::collections::VecDeque;
 use std::convert::Infallible;
 use std::fs::File;
 use std::io;
@@ -15,35 +14,11 @@ fn main() -> anyhow::Result<()>{
         .join("\n");
 
     let sudoku = lines.parse::<Sudoku>()?;
-    println!("{}", sudoku);
-    let mut solver = Into::<SudokuSolver>::into(sudoku);
-    //println!("{}", solver);
-    if !solver.is_solved() {
-        let mut stack = VecDeque::new();
-        stack.push_back(solver);
-
-        loop {
-            solver = stack.pop_back().unwrap();
-            println!("{}", Into::<Sudoku>::into(solver.clone()));
-            match solver.lowest_entropy_field() {
-                None => break,
-                Some((x, y)) => for v in solver.get(x, y).iter(){
-                    let mut solver_step = solver.clone();
-                    solver_step.set(x, y, v);
-                    if solver_step.is_valid() {
-                        println!("Found {} for {}, {}", v, x, y);
-                        stack.push_back(solver_step)
-                    }
-                }
-            }
-        }
+    println!("Trying to solved to following sudoku:\n{}", sudoku);
+    match sudoku.solve() {
+        None => println!("No solution found!"),
+        Some(solved) => println!("Found solution:\n{}", solved)
     }
-
-
-    println!("Solved: {}", solver.is_solved());
-    println!("{}", solver);
-    println!("{}", Into::<Sudoku>::into(solver));
-
     Ok(())
 }
 
@@ -101,66 +76,6 @@ impl<T> SudokuField<T>{
         &mut self.elements[y * Self::size() + x]
     }
 
-}
-
-
-type Sudoku = SudokuField<Option<u8>>;
-
-impl FromStr for Sudoku {
-    type Err = Infallible;
-
-    fn from_str(str: &str) -> Result<Self, Self::Err> {
-        Ok(Sudoku{ elements: str
-            .lines()
-            .flat_map(|line| line
-                .split(' ')
-                .map(|str| match str {
-                    "_" => None,
-                    str => Some(str.parse::<u8>().unwrap())
-                }))
-            .collect::<Vec<_>>()
-            .try_into().unwrap() })
-    }
-}
-
-impl Display for Sudoku {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        for y1 in 0..Self::cell_size() {
-            for y2 in 0..Self::cell_size() {
-                for x1 in 0..Self::cell_size() {
-                    for x2 in 0..Self::cell_size() {
-                        match self.get(x1 * 3 + x2, y1 * 3 + y2) {
-                            None => write!(f, " "),
-                            Some(v) => write!(f, "{}", v)
-                        }?;
-                        if x2 < Self::cell_size() - 1 {
-                            write!(f, " ")?;
-                        }
-                    }
-                    if x1 < Self::cell_size() - 1 {
-                        write!(f, " | ")?;
-                    }
-
-                }
-                writeln!(f, "")?;
-            }
-            if y1 < Self::cell_size() - 1 {
-                for y2 in 0..Self::cell_size() {
-                    for y3 in 0..Self::cell_size() {
-                        write!(f, "-")?;
-                        if y3 < Self::cell_size() - 1 {
-                            write!(f, "-")?;
-                        }
-                    }
-                    if y2 < Self::cell_size() - 1 {
-                        write!(f, "-+-")?;
-                    }
-                }
-                writeln!(f, "")?;
-            }
-        }
-        Ok(())
-    }
 }
 
 type ValueSet = smallbitset::Set16;
@@ -224,38 +139,34 @@ impl SudokuSolver {
             .map(|(i, _) | (i % Self::size(), i / Self::size()))
     }
 
-}
-
-impl From<Sudoku> for SudokuSolver {
-    fn from(sudoku: Sudoku) -> Self {
-        let mut solver = SudokuSolver::empty();
-        for x in 0..Self::size() {
-            for y in 0..Self::size() {
-                if let Some(v) = *sudoku.get(x, y) {
-                    // println!("{}, {} = {}", x, y, v);
-                    solver.set(x,y,v);
-                    // println!("\n{}", solver)
-                }
-            }
+    fn solve(self) -> Option<SudokuSolver>{
+        debug_assert!(self.is_valid());
+        match self.lowest_entropy_field() {
+            None => {
+                debug_assert!(self.is_solved());
+                Some(self)
+            },
+            Some((x, y)) => self
+                .get(x, y)
+                .iter()
+                .map(|v|{
+                    let mut step = self.clone();
+                    step.set(x, y, v);
+                    step
+                })
+                .filter(|step|step.is_valid())
+                .filter_map(|step|step.solve())
+                .next()
         }
-        debug_assert!(solver.is_valid());
-        solver
     }
+
 }
 
-impl From<SudokuSolver> for Sudoku {
-    fn from(solver: SudokuSolver) -> Self {
-        let mut sudoku = Self {
-            elements: [None; Self::size() * Self::size()]
-        };
-        for x in 0..Self::size() {
-            for y in 0..Self::size() {
-                if solver.get(x, y).len() == 1 {
-                    *sudoku.get_mut(x, y) = Some(solver.get(x, y).iter().nth(0).unwrap());
-                }
-            }
-        }
-        sudoku
+type Sudoku = SudokuField<Option<u8>>;
+
+impl Sudoku {
+    fn solve(self) -> Option<Sudoku>{
+        SudokuSolver::from(self).solve().map(|result|result.into())
     }
 }
 
@@ -290,3 +201,93 @@ impl Display for SudokuSolver {
         Ok(())
     }
 }
+
+impl From<Sudoku> for SudokuSolver {
+    fn from(sudoku: Sudoku) -> Self {
+        let mut solver = SudokuSolver::empty();
+        for x in 0..Self::size() {
+            for y in 0..Self::size() {
+                if let Some(v) = *sudoku.get(x, y) {
+                    solver.set(x,y,v);
+                }
+            }
+        }
+        debug_assert!(solver.is_valid());
+        solver
+    }
+}
+
+impl From<SudokuSolver> for Sudoku {
+    fn from(solver: SudokuSolver) -> Self {
+        let mut sudoku = Self {
+            elements: [None; Self::size() * Self::size()]
+        };
+        for x in 0..Self::size() {
+            for y in 0..Self::size() {
+                if solver.get(x, y).len() == 1 {
+                    *sudoku.get_mut(x, y) = Some(solver.get(x, y).iter().nth(0).unwrap());
+                }
+            }
+        }
+        sudoku
+    }
+}
+
+impl FromStr for Sudoku {
+    type Err = Infallible;
+
+    fn from_str(str: &str) -> Result<Self, Self::Err> {
+        Ok(Sudoku{ elements: str
+            .lines()
+            .flat_map(|line| line
+                .split(' ')
+                .map(|str| match str {
+                    "_" => None,
+                    str => Some(str.parse::<u8>().unwrap())
+                }))
+            .collect::<Vec<_>>()
+            .try_into().unwrap() })
+    }
+}
+
+impl Display for Sudoku {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        for y1 in 0..Self::cell_size() {
+            for y2 in 0..Self::cell_size() {
+                for x1 in 0..Self::cell_size() {
+                    for x2 in 0..Self::cell_size() {
+                        match self.get(x1 * 3 + x2, y1 * 3 + y2) {
+                            None => write!(f, " "),
+                            Some(v) => write!(f, "{}", v)
+                        }?;
+                        if x2 < Self::cell_size() - 1 {
+                            write!(f, " ")?;
+                        }
+                    }
+                    if x1 < Self::cell_size() - 1 {
+                        write!(f, " | ")?;
+                    }
+
+                }
+                writeln!(f, "")?;
+            }
+            if y1 < Self::cell_size() - 1 {
+                for y2 in 0..Self::cell_size() {
+                    for y3 in 0..Self::cell_size() {
+                        write!(f, "-")?;
+                        if y3 < Self::cell_size() - 1 {
+                            write!(f, "-")?;
+                        }
+                    }
+                    if y2 < Self::cell_size() - 1 {
+                        write!(f, "-+-")?;
+                    }
+                }
+                writeln!(f, "")?;
+            }
+        }
+        Ok(())
+    }
+}
+
+
