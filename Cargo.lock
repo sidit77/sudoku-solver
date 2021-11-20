@@ -9,8 +9,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "38d9ff5d688f1c13395289f67db01d4826b46dd694e7580accdc3e8430f2d98e"
 
 [[package]]
+name = "smallbitset"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7d4ce741ca27fedf55f1b5d354c6b456354e5105c00adbc404c00b72ee310406"
+
+[[package]]
 name = "sudoku"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "smallbitset",
 ]
