@@ -5,17 +5,17 @@ use std::io::{BufReader, Read};
 use std::ops::{Range};
 use std::str::FromStr;
 
-fn main() -> anyhow::Result<()>{
+fn main() {
     let mut lines: String = String::new();
-    BufReader::new(File::open("sudoku2.txt")?).read_to_string(&mut lines)?;
+    BufReader::new(File::open("sudoku2.txt").expect("cannot open file"))
+        .read_to_string(&mut lines).expect("error reading file");
 
-    let sudoku = lines.parse::<Sudoku>()?;
+    let sudoku = lines.parse::<Sudoku>().expect("error parsing");
     println!("Trying to solved to following sudoku:\n{}", sudoku);
     match sudoku.solve() {
         None => println!("No solution found!"),
         Some(solved) => println!("Found solution:\n{}", solved)
     }
-    Ok(())
 }
 
 #[derive(Debug, Clone)]
