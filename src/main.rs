@@ -32,7 +32,7 @@ struct SudokuField<T> {
 impl<T> SudokuField<T>{
 
     const fn values() -> Range<u8> {
-        1u8..(Self::size() as u8 + 1)
+        0u8..(Self::size() as u8)
     }
 
     const fn size() -> usize {
@@ -83,7 +83,7 @@ impl<T> SudokuField<T>{
 }
 
 
-type Sudoku = SudokuField<Option<NonZeroU8>>;
+type Sudoku = SudokuField<Option<u8>>;
 
 impl FromStr for Sudoku {
     type Err = Infallible;
@@ -95,7 +95,7 @@ impl FromStr for Sudoku {
                 .split(' ')
                 .map(|str| match str {
                     "_" => None,
-                    str => Some(str.parse::<NonZeroU8>().unwrap())
+                    str => Some(str.parse::<u8>().unwrap())
                 })
                 .collect::<Vec<_>>()
                 .try_into().unwrap())
@@ -150,7 +150,7 @@ type SudokuSolver = SudokuField<ValueSet>;
 impl SudokuSolver {
     fn empty() -> Self {
         let full_set = Self::values()
-            .map(|v| ValueSet::singleton(v - 1))
+            .map(|v| ValueSet::singleton(v))
             .fold(ValueSet::empty(), ValueSet::union);
         Self {
             rows: [[full_set; Self::size()]; Self::size()]
@@ -159,15 +159,15 @@ impl SudokuSolver {
 
     fn set(&mut self, x: usize, y: usize, v: u8) {
         debug_assert!(Self::values().contains(&v));
-        debug_assert!(self.get(x, y).contains(v - 1));
-        *self.get_mut(x, y) = ValueSet::singleton(v - 1);
+        debug_assert!(self.get(x, y).contains(v));
+        *self.get_mut(x, y) = ValueSet::singleton(v);
         self.propagate(x, y);
         debug_assert!(!self.get(x,y).is_empty(), "{}, {} is empty", x, y)
     }
 
     fn propagate(&mut self, x: usize, y: usize){
         debug_assert!(self.get(x, y).len() == 1);
-        let v = self.get(x, y).iter().nth(0).unwrap() + 1;
+        let v = self.get(x, y).iter().nth(0).unwrap();
         for (x, y) in Self::row(x,y) {
             self.remove(x, y, v);
         }
@@ -182,7 +182,7 @@ impl SudokuSolver {
     fn remove(&mut self, x: usize, y: usize, v: u8){
         debug_assert!(Self::values().contains(&v));
         let l = self.get(x, y).len();
-        *self.get_mut(x, y) = self.get(x, y).remove(v - 1);
+        *self.get_mut(x, y) = self.get(x, y).remove(v);
         if self.get(x, y).len() == 1 && l > self.get(x, y).len() {
             self.propagate(x, y);
         }
@@ -200,7 +200,7 @@ impl From<Sudoku> for SudokuSolver {
             for y in 0..Self::size() {
                 if let Some(v) = *sudoku.get(x, y) {
                     println!("{}, {} = {}", x, y, v);
-                    solver.set(x,y,v.get());
+                    solver.set(x,y,v);
                     println!("\n{}", solver)
                 }
             }
@@ -217,7 +217,7 @@ impl Display for SudokuSolver {
                     for x2 in 0..Self::cell_size() {
                         let cell = *self.get(x1 * 3 + x2, y1 * 3 + y2);
                         let list = Self::values()
-                            .map(|v| if cell.contains(v - 1) { format!("{}", v)} else {"_".to_string()})
+                            .map(|v| if cell.contains(v) { format!("{}", v)} else {"_".to_string()})
                             .collect::<Vec<_>>()
                             .join(", ");
                         write!(f, "[{}]", list)?;
