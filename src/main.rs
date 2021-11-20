@@ -65,20 +65,14 @@ impl SudokuSolver {
     }
 
     fn row(x: usize, y: usize) -> impl Iterator<Item=(usize,usize)> {
-        debug_assert!(x < Self::size());
-        debug_assert!(y < Self::size());
         (0..Self::size()).filter(move |i| *i != x).map(move |x| (x, y))
     }
 
     fn column(x: usize, y: usize) -> impl Iterator<Item=(usize,usize)> {
-        debug_assert!(x < Self::size());
-        debug_assert!(y < Self::size());
         (0..Self::size()).filter(move |i| *i != y).map(move |y| (x, y))
     }
 
     fn cell(x: usize, y: usize) -> impl Iterator<Item=(usize,usize)> {
-        debug_assert!(x < Self::size());
-        debug_assert!(y < Self::size());
         let cell_x = (x / Self::cell_size()) * Self::cell_size();
         let cell_y = (y / Self::cell_size()) * Self::cell_size();
         (0..Self::cell_size())
