@@ -24,7 +24,7 @@ fn main() -> anyhow::Result<()>{
 
 #[derive(Debug)]
 struct SudokuField<T> {
-    rows: [[T; SudokuField::<()>::size()]; SudokuField::<()>::size()]
+    elements: [T; SudokuField::<()>::size() * SudokuField::<()>::size()]
 }
 
 impl<T> SudokuField<T>{
@@ -67,13 +67,13 @@ impl<T> SudokuField<T>{
     fn get(&self, x: usize, y: usize) -> &T {
         debug_assert!(x < Self::size());
         debug_assert!(y < Self::size());
-        &self.rows[y][x]
+        &self.elements[y * Self::size() + x]
     }
 
     fn get_mut(&mut self, x: usize, y: usize) -> &mut T {
         debug_assert!(x < Self::size());
         debug_assert!(y < Self::size());
-        &mut self.rows[y][x]
+        &mut self.elements[y * Self::size() + x]
     }
 
 
@@ -87,16 +87,14 @@ impl FromStr for Sudoku {
     type Err = Infallible;
 
     fn from_str(str: &str) -> Result<Self, Self::Err> {
-        Ok(Sudoku{ rows: str
+        Ok(Sudoku{ elements: str
             .lines()
-            .map(|line| line
+            .flat_map(|line| line
                 .split(' ')
                 .map(|str| match str {
                     "_" => None,
                     str => Some(str.parse::<u8>().unwrap())
-                })
-                .collect::<Vec<_>>()
-                .try_into().unwrap())
+                }))
             .collect::<Vec<_>>()
             .try_into().unwrap() })
     }
@@ -151,7 +149,7 @@ impl SudokuSolver {
             .map(|v| ValueSet::singleton(v))
             .fold(ValueSet::empty(), ValueSet::union);
         Self {
-            rows: [[full_set; Self::size()]; Self::size()]
+            elements: [full_set; Self::size() * Self::size()]
         }
     }
 
@@ -208,7 +206,7 @@ impl From<Sudoku> for SudokuSolver {
 impl From<SudokuSolver> for Sudoku {
     fn from(solver: SudokuSolver) -> Self {
         let mut sudoku = Self {
-            rows: [[None; Self::size()]; Self::size()]
+            elements: [None; Self::size() * Self::size()]
         };
         for x in 0..Self::size() {
             for y in 0..Self::size() {
