@@ -1,4 +1,4 @@
-use std::convert::Infallible;
+use std::error::Error;
 use std::fs::File;
 use std::io;
 use std::fmt::{Debug, Display, Formatter};
@@ -48,7 +48,7 @@ impl<T> SudokuField<T>{
         &self.elements[y * Self::size() + x]
     }
 
-    fn set(&mut self, x: usize, y: usize, v: T) {
+    pub fn set(&mut self, x: usize, y: usize, v: T) {
         debug_assert!(x < Self::size());
         debug_assert!(y < Self::size());
         self.elements[y * Self::size() + x] = v;
@@ -162,6 +162,12 @@ impl SudokuSolver {
 pub type Sudoku = SudokuField<Option<u8>>;
 
 impl Sudoku {
+    pub fn empty() -> Self {
+        Self {
+            elements: [None; Self::size() * Self::size()]
+        }
+    }
+
     pub fn solve(self) -> Option<Sudoku>{
         SudokuSolver::from(self).solve().map(|result|result.into())
     }
@@ -183,9 +189,7 @@ impl From<Sudoku> for SudokuSolver {
 
 impl From<SudokuSolver> for Sudoku {
     fn from(solver: SudokuSolver) -> Self {
-        let mut sudoku = Self {
-            elements: [None; Self::size() * Self::size()]
-        };
+        let mut sudoku = Self::empty();
         for x in 0..Self::size() {
             for y in 0..Self::size() {
                 sudoku.set(x, y, solver.get(x, y).iter().single().ok());
@@ -227,20 +231,63 @@ impl Display for SudokuSolver {
     }
 }
 
+#[derive(Copy, Clone, Eq, PartialEq, Debug)]
+pub enum SudokuParseError {
+    TooFewValues,
+    TooManyValues
+}
+
+impl Display for SudokuParseError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            SudokuParseError::TooFewValues =>
+                write!(f, "Got fewer than {} valid characters ('_', 1-9)", Sudoku::size() * Sudoku::size()),
+            SudokuParseError::TooManyValues =>
+                write!(f, "Got more than {} valid characters ('_', 1-9)", Sudoku::size() * Sudoku::size()),
+        }
+    }
+}
+
+impl Error for SudokuParseError {}
+
 impl FromStr for Sudoku {
-    type Err = Infallible;
+    type Err = SudokuParseError;
 
     fn from_str(str: &str) -> Result<Self, Self::Err> {
-        Ok(Sudoku{ elements: str
-            .lines()
-            .flat_map(|line| line
-                .split(' ')
-                .map(|str| match str {
-                    "_" => None,
-                    str => Some(str.parse::<u8>().unwrap())
-                }))
-            .collect::<Vec<_>>()
-            .try_into().unwrap() })
+        let mut result = Sudoku::empty();
+
+        let mut chars = str.chars().filter_map(|c|match c {
+           '_' => Some(None),
+            _ => match c.to_digit(10).unwrap_or(0) {
+                0 => None,
+                v => Some(Some((v as u8) - 1))
+            }
+        });
+
+        for x in 0..Self::size() {
+            for y in 0..Self::size() {
+                match chars.next() {
+                    None => Err(SudokuParseError::TooFewValues)?,
+                    Some(v) => result.set(x, y, v)
+                }
+            }
+        }
+
+        match chars.next() {
+            None => Ok(result),
+            Some(_) => Err(SudokuParseError::TooManyValues)
+        }
+
+        //Ok(Sudoku{ elements: str
+        //    .lines()
+        //    .flat_map(|line| line
+        //        .split(' ')
+        //        .map(|str| match str {
+        //            "_" => None,
+        //            str => Some(str.parse::<u8>().unwrap())
+        //        }))
+        //    .collect::<Vec<_>>()
+        //    .try_into().unwrap() })
     }
 }
 
