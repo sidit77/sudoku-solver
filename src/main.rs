@@ -1,14 +1,13 @@
 use std::fs::File;
 use std::io;
 use std::convert::Infallible;
-use std::fmt::{Display, format, Formatter};
+use std::fmt::{Debug, Display, Formatter};
 use std::io::{BufRead, BufReader};
-use std::num::NonZeroU8;
 use std::ops::{Range};
 use std::str::FromStr;
 
 fn main() -> anyhow::Result<()>{
-    let file = File::open("sudoku.txt")?;
+    let file = File::open("sudoku2.txt")?;
     let lines: String = BufReader::new(file)
         .lines()
         .collect::<io::Result<Vec<String>>>()?
@@ -16,10 +15,9 @@ fn main() -> anyhow::Result<()>{
 
     let sudoku = lines.parse::<Sudoku>()?;
     println!("{}", sudoku);
-    println!("{:?}", Sudoku::cell(7,4).collect::<Vec<_>>());
     let solver = Into::<SudokuSolver>::into(sudoku);
-
-
+    println!("{}", solver);
+    println!("{}", Into::<Sudoku>::into(solver));
 
     Ok(())
 }
@@ -189,8 +187,6 @@ impl SudokuSolver {
         debug_assert!(!self.get(x,y).is_empty(), "{}, {} is empty", x, y)
     }
 
-
-
 }
 
 impl From<Sudoku> for SudokuSolver {
@@ -199,13 +195,29 @@ impl From<Sudoku> for SudokuSolver {
         for x in 0..Self::size() {
             for y in 0..Self::size() {
                 if let Some(v) = *sudoku.get(x, y) {
-                    println!("{}, {} = {}", x, y, v);
+                    // println!("{}, {} = {}", x, y, v);
                     solver.set(x,y,v);
-                    println!("\n{}", solver)
+                    // println!("\n{}", solver)
                 }
             }
         }
         solver
+    }
+}
+
+impl From<SudokuSolver> for Sudoku {
+    fn from(solver: SudokuSolver) -> Self {
+        let mut sudoku = Self {
+            rows: [[None; Self::size()]; Self::size()]
+        };
+        for x in 0..Self::size() {
+            for y in 0..Self::size() {
+                if solver.get(x, y).len() == 1 {
+                    *sudoku.get_mut(x, y) = Some(solver.get(x, y).iter().nth(0).unwrap());
+                }
+            }
+        }
+        sudoku
     }
 }
 
