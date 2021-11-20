@@ -93,7 +93,6 @@ impl SudokuSolver {
 
     fn set(&mut self, x: usize, y: usize, v: u8) {
         debug_assert!(Self::values().contains(&v));
-        debug_assert!(self.get(x, y).contains(v));
         *self.get_mut(x, y) = ValueSet::singleton(v);
         self.propagate(x, y);
     }
@@ -125,10 +124,6 @@ impl SudokuSolver {
         !self.elements.iter().any(|elem| elem.is_empty())
     }
 
-    fn is_solved(&self) -> bool {
-        !self.elements.iter().any(|elem| elem.len() > 1)
-    }
-
     fn lowest_entropy_field(&self) -> Option<(usize, usize)> {
         self.elements
             .iter()
@@ -140,23 +135,23 @@ impl SudokuSolver {
     }
 
     fn solve(self) -> Option<SudokuSolver>{
-        debug_assert!(self.is_valid());
-        match self.lowest_entropy_field() {
-            None => {
-                debug_assert!(self.is_solved());
-                Some(self)
-            },
-            Some((x, y)) => self
-                .get(x, y)
-                .iter()
-                .map(|v|{
-                    let mut step = self.clone();
-                    step.set(x, y, v);
-                    step
-                })
-                .filter(|step|step.is_valid())
-                .filter_map(|step|step.solve())
-                .next()
+        match self.is_valid() {
+            true => match self.lowest_entropy_field() {
+                None => {
+                    debug_assert!(!self.elements.iter().any(|elem| elem.len() > 1));
+                    Some(self)
+                },
+                Some((x, y)) => self
+                    .get(x, y)
+                    .iter()
+                    .filter_map(|v|{
+                        let mut step = self.clone();
+                        step.set(x, y, v);
+                        step.solve()
+                    })
+                    .next()
+            }
+            false => None
         }
     }
 
@@ -212,7 +207,6 @@ impl From<Sudoku> for SudokuSolver {
                 }
             }
         }
-        debug_assert!(solver.is_valid());
         solver
     }
 }
