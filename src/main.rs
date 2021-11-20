@@ -13,6 +13,9 @@ fn main() -> anyhow::Result<()>{
         .collect::<io::Result<Vec<String>>>()?
         .join("\n");
 
+
+    println!("{}", lines);
+
     let sudoku = lines.parse::<Sudoku>()?;
     println!("Trying to solved to following sudoku:\n{}", sudoku);
     match sudoku.solve() {
@@ -175,8 +178,8 @@ impl Sudoku {
 impl From<Sudoku> for SudokuSolver {
     fn from(sudoku: Sudoku) -> Self {
         let mut solver = SudokuSolver::empty();
-        for x in 0..Self::size() {
-            for y in 0..Self::size() {
+        for y in 0..Self::size() {
+            for x in 0..Self::size() {
                 if let Some(v) = *sudoku.get(x, y) {
                     solver.set_constraint(x,y,v);
                 }
@@ -189,8 +192,8 @@ impl From<Sudoku> for SudokuSolver {
 impl From<SudokuSolver> for Sudoku {
     fn from(solver: SudokuSolver) -> Self {
         let mut sudoku = Self::empty();
-        for x in 0..Self::size() {
-            for y in 0..Self::size() {
+        for y in 0..Self::size() {
+            for x in 0..Self::size() {
                 sudoku.set(x, y, solver.get(x, y).iter().single());
             }
         }
@@ -231,8 +234,8 @@ impl FromStr for Sudoku {
             }
         });
 
-        for x in 0..Self::size() {
-            for y in 0..Self::size() {
+        for y in 0..Self::size() {
+            for x in 0..Self::size() {
                 match chars.next() {
                     None => Err(SudokuParseError::TooFewValues)?,
                     Some(v) => result.set(x, y, v)
