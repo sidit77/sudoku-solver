@@ -5,7 +5,6 @@ use std::fmt::{Debug, Display, Formatter};
 use std::io::{BufRead, BufReader};
 use std::ops::{Range};
 use std::str::FromStr;
-use single::Single;
 
 fn main() -> anyhow::Result<()>{
     let file = File::open("sudoku2.txt")?;
@@ -116,7 +115,7 @@ impl SudokuSolver {
         let new = old.remove(v);
         if new != old {
             self.set(x, y, new);
-            if let Ok(v) = new.iter().single() {
+            if let Some(v) = new.iter().single() {
                 self.propagate(x, y, v);
             }
         }
@@ -192,42 +191,10 @@ impl From<SudokuSolver> for Sudoku {
         let mut sudoku = Self::empty();
         for x in 0..Self::size() {
             for y in 0..Self::size() {
-                sudoku.set(x, y, solver.get(x, y).iter().single().ok());
+                sudoku.set(x, y, solver.get(x, y).iter().single());
             }
         }
         sudoku
-    }
-}
-
-impl Display for SudokuSolver {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        for y1 in 0..Self::cell_size() {
-            for y2 in 0..Self::cell_size() {
-                for x1 in 0..Self::cell_size() {
-                    for x2 in 0..Self::cell_size() {
-                        let cell = *self.get(x1 * 3 + x2, y1 * 3 + y2);
-                        let list = Self::values()
-                            .map(|v| if cell.contains(v) { format!("{}", v)} else {"_".to_string()})
-                            .collect::<Vec<_>>()
-                            .join(", ");
-                        write!(f, "[{}]", list)?;
-                        //write!(f, "{}", cell.len())?;
-                        if x2 < Self::cell_size() - 1 {
-                            write!(f, " ")?;
-                        }
-                    }
-                    if x1 < Self::cell_size() - 1 {
-                        write!(f, " | ")?;
-                    }
-
-                }
-                writeln!(f, "")?;
-            }
-            if y1 < Self::cell_size() - 1 {
-                writeln!(f, "")?;
-            }
-        }
-        Ok(())
     }
 }
 
@@ -277,60 +244,53 @@ impl FromStr for Sudoku {
             None => Ok(result),
             Some(_) => Err(SudokuParseError::TooManyValues)
         }
-
-        //Ok(Sudoku{ elements: str
-        //    .lines()
-        //    .flat_map(|line| line
-        //        .split(' ')
-        //        .map(|str| match str {
-        //            "_" => None,
-        //            str => Some(str.parse::<u8>().unwrap())
-        //        }))
-        //    .collect::<Vec<_>>()
-        //    .try_into().unwrap() })
     }
 }
 
 impl Display for Sudoku {
-        fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-            for y1 in 0..Self::cell_size() {
-                for y2 in 0..Self::cell_size() {
-                    for x1 in 0..Self::cell_size() {
-                        for x2 in 0..Self::cell_size() {
-                            match self.get(x1 * 3 + x2, y1 * 3 + y2) {
-                                None => write!(f, " "),
-                                Some(v) => write!(f, "{}", v)
-                            }?;
-                            if x2 < Self::cell_size() - 1 {
-                                write!(f, " ")?;
-                            }
-                        }
-                        if x1 < Self::cell_size() - 1 {
-                            write!(f, " | ")?;
-                        }
 
-                    }
-                    writeln!(f, "")?;
-                }
-                if y1 < Self::cell_size() - 1 {
-                    for y2 in 0..Self::cell_size() {
-                        for y3 in 0..Self::cell_size() {
-                            write!(f, "-")?;
-                            if y3 < Self::cell_size() - 1 {
-                                write!(f, "-")?;
-                            }
-                        }
-                        if y2 < Self::cell_size() - 1 {
-                            write!(f, "-+-")?;
-                        }
-                    }
-                    writeln!(f, "")?;
-                }
-            }
-            Ok(())
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        const TEMPLATE: &str = "
+┌───────┬───────┬───────┐
+│ _ _ _ │ _ _ _ │ _ _ _ │
+│ _ _ _ │ _ _ _ │ _ _ _ │
+│ _ _ _ │ _ _ _ │ _ _ _ │
+├───────┼───────┼───────┤
+│ _ _ _ │ _ _ _ │ _ _ _ │
+│ _ _ _ │ _ _ _ │ _ _ _ │
+│ _ _ _ │ _ _ _ │ _ _ _ │
+├───────┼───────┼───────┤
+│ _ _ _ │ _ _ _ │ _ _ _ │
+│ _ _ _ │ _ _ _ │ _ _ _ │
+│ _ _ _ │ _ _ _ │ _ _ _ │
+└───────┴───────┴───────┘
+        ";
+
+        let mut elements = self.elements.iter().map(|v| match v {
+            None => ' ',
+            Some(v) => char::from_digit(*v as u32 + 1, 10).unwrap()
+        });
+
+        TEMPLATE.trim().chars().map(|c| match c {
+            '_' => elements.next().expect("wrong format string"),
+            _ => c
+        }).map(|c| write!(f, "{}", c)).collect()
+    }
+}
+
+pub trait Single: Iterator {
+    fn single(self) -> Option<Self::Item>;
+}
+
+impl<I: Iterator> Single for I {
+    fn single(mut self) -> Option<Self::Item> {
+        match self.next() {
+            None => None,
+            Some(element) => match self.next() {
+                None => Some(element),
+                Some(_) => None,
+            },
         }
     }
-
-
-
+}
 
