@@ -4,6 +4,7 @@ use std::fmt::{Debug, Display, Formatter};
 use std::io::{BufReader, Read};
 use std::ops::{Range};
 use std::str::FromStr;
+use std::time::Instant;
 
 fn main() {
     let mut lines: String = String::new();
@@ -12,9 +13,12 @@ fn main() {
 
     let sudoku = lines.parse::<Sudoku>().expect("error parsing");
     println!("Trying to solved to following sudoku:\n{}", sudoku);
-    match sudoku.solve() {
+    let time = Instant::now();
+    let sudoku = sudoku.solve();
+    let time = Instant::now() - time;
+    match sudoku {
         None => println!("No solution found!"),
-        Some(solved) => println!("Found solution:\n{}", solved)
+        Some(solved) => println!("Found solution ({}s):\n{}", time.as_secs_f64(), solved)
     }
 }
 
