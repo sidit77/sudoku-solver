@@ -5,6 +5,7 @@ use std::fmt::{Debug, Display, Formatter};
 use std::io::{BufRead, BufReader};
 use std::ops::{Range};
 use std::str::FromStr;
+use single::Single;
 
 fn main() -> anyhow::Result<()>{
     let file = File::open("sudoku2.txt")?;
@@ -70,10 +71,10 @@ impl<T> SudokuField<T>{
         &self.elements[y * Self::size() + x]
     }
 
-    fn get_mut(&mut self, x: usize, y: usize) -> &mut T {
+    fn set(&mut self, x: usize, y: usize, v: T) {
         debug_assert!(x < Self::size());
         debug_assert!(y < Self::size());
-        &mut self.elements[y * Self::size() + x]
+        self.elements[y * Self::size() + x] = v;
     }
 
 }
@@ -91,15 +92,13 @@ impl SudokuSolver {
         }
     }
 
-    fn set(&mut self, x: usize, y: usize, v: u8) {
+    fn set_constraint(&mut self, x: usize, y: usize, v: u8) {
         debug_assert!(Self::values().contains(&v));
-        *self.get_mut(x, y) = ValueSet::singleton(v);
-        self.propagate(x, y);
+        self.set(x, y, ValueSet::singleton(v));
+        self.propagate(x, y, v);
     }
 
-    fn propagate(&mut self, x: usize, y: usize){
-        debug_assert!(self.get(x, y).len() == 1);
-        let v = self.get(x, y).iter().nth(0).unwrap();
+    fn propagate(&mut self, x: usize, y: usize, v: u8){
         for (x, y) in Self::row(x,y) {
             self.remove(x, y, v);
         }
@@ -113,10 +112,13 @@ impl SudokuSolver {
 
     fn remove(&mut self, x: usize, y: usize, v: u8){
         debug_assert!(Self::values().contains(&v));
-        let l = self.get(x, y).len();
-        *self.get_mut(x, y) = self.get(x, y).remove(v);
-        if self.get(x, y).len() == 1 && l > self.get(x, y).len() {
-            self.propagate(x, y);
+        let old = *self.get(x, y);
+        let new = old.remove(v);
+        if new != old {
+            self.set(x, y, new);
+            if let Ok(v) = new.iter().single() {
+                self.propagate(x, y, v);
+            }
         }
     }
 
@@ -146,7 +148,7 @@ impl SudokuSolver {
                     .iter()
                     .filter_map(|v|{
                         let mut step = self.clone();
-                        step.set(x, y, v);
+                        step.set_constraint(x, y, v);
                         step.solve()
                     })
                     .next()
@@ -162,6 +164,34 @@ type Sudoku = SudokuField<Option<u8>>;
 impl Sudoku {
     fn solve(self) -> Option<Sudoku>{
         SudokuSolver::from(self).solve().map(|result|result.into())
+    }
+}
+
+impl From<Sudoku> for SudokuSolver {
+    fn from(sudoku: Sudoku) -> Self {
+        let mut solver = SudokuSolver::empty();
+        for x in 0..Self::size() {
+            for y in 0..Self::size() {
+                if let Some(v) = *sudoku.get(x, y) {
+                    solver.set_constraint(x,y,v);
+                }
+            }
+        }
+        solver
+    }
+}
+
+impl From<SudokuSolver> for Sudoku {
+    fn from(solver: SudokuSolver) -> Self {
+        let mut sudoku = Self {
+            elements: [None; Self::size() * Self::size()]
+        };
+        for x in 0..Self::size() {
+            for y in 0..Self::size() {
+                sudoku.set(x, y, solver.get(x, y).iter().single().ok());
+            }
+        }
+        sudoku
     }
 }
 
@@ -194,36 +224,6 @@ impl Display for SudokuSolver {
             }
         }
         Ok(())
-    }
-}
-
-impl From<Sudoku> for SudokuSolver {
-    fn from(sudoku: Sudoku) -> Self {
-        let mut solver = SudokuSolver::empty();
-        for x in 0..Self::size() {
-            for y in 0..Self::size() {
-                if let Some(v) = *sudoku.get(x, y) {
-                    solver.set(x,y,v);
-                }
-            }
-        }
-        solver
-    }
-}
-
-impl From<SudokuSolver> for Sudoku {
-    fn from(solver: SudokuSolver) -> Self {
-        let mut sudoku = Self {
-            elements: [None; Self::size() * Self::size()]
-        };
-        for x in 0..Self::size() {
-            for y in 0..Self::size() {
-                if solver.get(x, y).len() == 1 {
-                    *sudoku.get_mut(x, y) = Some(solver.get(x, y).iter().nth(0).unwrap());
-                }
-            }
-        }
-        sudoku
     }
 }
 
