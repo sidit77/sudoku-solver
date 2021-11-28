@@ -44,13 +44,13 @@ fn main() {
                     KeyEvent { code: KeyCode::Char('q'), .. } => break,
                     KeyEvent { code: KeyCode::Char('n'), .. } => sudoku = Sudoku::empty(),
                     KeyEvent { code: KeyCode::Left, .. } =>
-                        selected_cell.0 = (selected_cell.0 - 1).clamp(0, 8),
+                        selected_cell.0 = (selected_cell.0 + Sudoku::size() - 1) % Sudoku::size(),
                     KeyEvent { code: KeyCode::Right, .. } =>
-                        selected_cell.0 = (selected_cell.0 + 1).clamp(0, 8),
+                        selected_cell.0 = (selected_cell.0 + Sudoku::size() + 1) % Sudoku::size(),
                     KeyEvent { code: KeyCode::Up, .. } =>
-                        selected_cell.1 = (selected_cell.1 - 1).clamp(0, 8),
+                        selected_cell.1 = (selected_cell.1 + Sudoku::size() - 1) % Sudoku::size(),
                     KeyEvent { code: KeyCode::Down, .. } =>
-                        selected_cell.1 = (selected_cell.1 + 1).clamp(0, 8),
+                        selected_cell.1 = (selected_cell.1 + Sudoku::size() + 1) % Sudoku::size(),
                     KeyEvent { code: KeyCode::Char('1'), .. } => set(selected_cell.0, selected_cell.1, Some(0)),
                     KeyEvent { code: KeyCode::Char('2'), .. } => set(selected_cell.0, selected_cell.1, Some(1)),
                     KeyEvent { code: KeyCode::Char('3'), .. } => set(selected_cell.0, selected_cell.1, Some(2)),
