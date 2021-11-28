@@ -1,25 +1,134 @@
 use std::error::Error;
-use std::fs::File;
 use std::fmt::{Debug, Display, Formatter};
-use std::io::{BufReader, Read};
 use std::ops::{Range};
 use std::str::FromStr;
-use std::time::Instant;
+use console_engine::{Color, ConsoleEngine, KeyCode};
+use console_engine::crossterm::event::KeyEvent;
+use console_engine::events::Event;
+use console_engine::pixel::Pixel;
 
 fn main() {
-    let mut lines: String = String::new();
-    BufReader::new(File::open("sudoku2.txt").expect("cannot open file"))
-        .read_to_string(&mut lines).expect("error reading file");
+    //let mut lines: String = String::new();
+    //BufReader::new(File::open("sudoku2.txt").expect("cannot open file"))
+    //    .read_to_string(&mut lines).expect("error reading file");
+//
+    //let mut sudoku = lines.parse::<Sudoku>().expect("error parsing");
+    //println!("Trying to solved to following sudoku:\n{}", sudoku);
+    //let time = Instant::now();
+    //let sudoku = sudoku.solve();
+    //let time = Instant::now() - time;
+    //match sudoku {
+    //    None => println!("No solution found!"),
+    //    Some(solved) => println!("Found solution ({}s):\n{}", time.as_secs_f64(), solved)
+    //}
 
-    let sudoku = lines.parse::<Sudoku>().expect("error parsing");
-    println!("Trying to solved to following sudoku:\n{}", sudoku);
-    let time = Instant::now();
-    let sudoku = sudoku.solve();
-    let time = Instant::now() - time;
-    match sudoku {
-        None => println!("No solution found!"),
-        Some(solved) => println!("Found solution ({}s):\n{}", time.as_secs_f64(), solved)
+    // initializes the engine
+    let mut engine = console_engine::ConsoleEngine::init(25, 13, 1).unwrap();
+
+    let mut selected_cell = (0,0);
+    let mut sudoku = Sudoku::empty();
+    let mut sudoku_solved = sudoku.solve();
+
+    draw(&mut engine, &sudoku, &sudoku_solved, selected_cell);
+    loop {
+        // Poll next event
+        match engine.poll() {
+
+            Event::Key(keyevent) => {
+                let mut set = | x, y, v | {
+                    sudoku.set(x, y, v);
+                    sudoku_solved = sudoku.solve();
+                };
+
+                match keyevent {
+                    KeyEvent { code: KeyCode::Char('q'), .. } => break,
+                    KeyEvent { code: KeyCode::Char('n'), .. } => sudoku = Sudoku::empty(),
+                    KeyEvent { code: KeyCode::Left, .. } =>
+                        selected_cell.0 = (selected_cell.0 - 1).clamp(0, 8),
+                    KeyEvent { code: KeyCode::Right, .. } =>
+                        selected_cell.0 = (selected_cell.0 + 1).clamp(0, 8),
+                    KeyEvent { code: KeyCode::Up, .. } =>
+                        selected_cell.1 = (selected_cell.1 - 1).clamp(0, 8),
+                    KeyEvent { code: KeyCode::Down, .. } =>
+                        selected_cell.1 = (selected_cell.1 + 1).clamp(0, 8),
+                    KeyEvent { code: KeyCode::Char('1'), .. } => set(selected_cell.0, selected_cell.1, Some(0)),
+                    KeyEvent { code: KeyCode::Char('2'), .. } => set(selected_cell.0, selected_cell.1, Some(1)),
+                    KeyEvent { code: KeyCode::Char('3'), .. } => set(selected_cell.0, selected_cell.1, Some(2)),
+                    KeyEvent { code: KeyCode::Char('4'), .. } => set(selected_cell.0, selected_cell.1, Some(3)),
+                    KeyEvent { code: KeyCode::Char('5'), .. } => set(selected_cell.0, selected_cell.1, Some(4)),
+                    KeyEvent { code: KeyCode::Char('6'), .. } => set(selected_cell.0, selected_cell.1, Some(5)),
+                    KeyEvent { code: KeyCode::Char('7'), .. } => set(selected_cell.0, selected_cell.1, Some(6)),
+                    KeyEvent { code: KeyCode::Char('8'), .. } => set(selected_cell.0, selected_cell.1, Some(7)),
+                    KeyEvent { code: KeyCode::Char('9'), .. } => set(selected_cell.0, selected_cell.1, Some(8)),
+                    KeyEvent { code: KeyCode::Char(' '), .. } => set(selected_cell.0, selected_cell.1, None),
+                    _ => {}
+                }
+
+                draw(&mut engine, &sudoku, &sudoku_solved, selected_cell);
+            }
+            _ => {}
+        }
     }
+}
+
+fn cell_to_pxl(x: i32, y: i32) -> (i32, i32) {
+    let x = 2 * (1 + x + (x / 3));
+    let y = 1 + y + (y / 3);
+    (x,y)
+}
+
+fn draw(engine: &mut ConsoleEngine, sudoku: &Sudoku, solved: &Option<Sudoku>, selected: (usize, usize)) {
+    engine.clear_screen();
+    engine.print_fbg(0, 0, "
+┌───────┬───────┬───────┐
+│ _ _ _ │ _ _ _ │ _ _ _ │
+│ _ _ _ │ _ _ _ │ _ _ _ │
+│ _ _ _ │ _ _ _ │ _ _ _ │
+├───────┼───────┼───────┤
+│ _ _ _ │ _ _ _ │ _ _ _ │
+│ _ _ _ │ _ _ _ │ _ _ _ │
+│ _ _ _ │ _ _ _ │ _ _ _ │
+├───────┼───────┼───────┤
+│ _ _ _ │ _ _ _ │ _ _ _ │
+│ _ _ _ │ _ _ _ │ _ _ _ │
+│ _ _ _ │ _ _ _ │ _ _ _ │
+└───────┴───────┴───────┘
+    ".trim(), Color::White, Color::Black);
+
+    for x in 0..Sudoku::size() {
+        for y in 0..Sudoku::size() {
+            let (px, py) = cell_to_pxl(x as i32, y as i32);
+
+            let mut pxl = match sudoku.get(x, y) {
+                None => match solved.as_ref().map(|s|*s.get(x, y)).flatten() {
+                    None => Pixel {
+                        bg: Color::Black,
+                        fg: Color::White,
+                        chr: ' '
+                    },
+                    Some(i) => Pixel {
+                        bg: Color::Black,
+                        fg: Color::DarkGrey,
+                        chr: char::from_digit(i as u32 + 1, 10).unwrap()
+                    }
+                },
+                Some(i) => Pixel {
+                    bg: Color::Black,
+                    fg: Color::White,
+                    chr: char::from_digit(*i as u32 + 1, 10).unwrap()
+                }
+            };
+            if x == selected.0 && y == selected.1 {
+                let tmp = pxl.fg;
+                pxl.fg = pxl.bg;
+                pxl.bg = tmp;
+            }
+
+            engine.set_pxl(px, py, pxl);
+        }
+    }
+
+    engine.draw();
 }
 
 #[derive(Debug, Clone)]
@@ -161,13 +270,13 @@ impl Sudoku {
         }
     }
 
-    pub fn solve(self) -> Option<Sudoku>{
+    pub fn solve(&self) -> Option<Sudoku>{
         SudokuSolver::from(self).solve().map(|result|result.into())
     }
 }
 
-impl From<Sudoku> for SudokuSolver {
-    fn from(sudoku: Sudoku) -> Self {
+impl From<&Sudoku> for SudokuSolver {
+    fn from(sudoku: &Sudoku) -> Self {
         let mut solver = SudokuSolver::empty();
         for y in 0..Self::size() {
             for x in 0..Self::size() {
@@ -287,4 +396,3 @@ impl<I: Iterator> Single for I {
         }
     }
 }
-

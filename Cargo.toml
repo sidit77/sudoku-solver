@@ -7,3 +7,4 @@ edition = "2021"
 
 [dependencies]
 smallbitset = "0.3"
+console_engine = {version = "2.2", features = ["event"] }
